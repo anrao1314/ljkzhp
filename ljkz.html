@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>灵境客栈</title>
+    <style>
+        /* 强制横屏 */
+        @media screen and (orientation: portrait) {
+            body::before {
+                content: "请将手机横屏使用！";
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: #1a1a2e;
+                color: white;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 24px;
+                z-index: 9999;
+            }
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #1a1a2e;
+            color: #e6e6e6;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* 加载界面 */
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .loading-logo {
+            font-size: 80px;
+            margin-bottom: 30px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        
+        .progress-container {
+            width: 300px;
+            height: 20px;
+            background-color: #333;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+        
+        #loading-text {
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        
+        /* 游戏主界面 - 横屏布局 */
+        #game {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            display: flex;
+            height: 100%;
+            gap: 10px;
+        }
+        
+        /* 左侧：状态面板 */
+        .left-panel {
+            width: 250px;
+            background: linear-gradient(135deg, #2d3047, #1a1a2e);
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid #444;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 中间：客人区域 */
+        .center-panel {
+            flex: 1;
+            background: linear-gradient(135deg, #2d3047, #1a1a2e);
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid #444;
+            overflow-y: auto;
+        }
+        
+        /* 右侧：操作面板 */
+        .right-panel {
+            width: 300px;
+            background: linear-gradient(135deg, #2d3047, #1a1a2e);
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid #444;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 顶部信息栏 */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #444;
+        }
+        
+        #day-display {
+            font-size: 24px;
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        #weather {
+            font-size: 18px;
+            color: #87CEEB;
+            background: rgba(135, 206, 235, 0.1);
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+        
+        /* 资源显示 */
+        .resources {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .resource-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #555;
+        }
+        
+        .resource-name {
+            font-size: 16px;
+        }
+        
+        .resource-value {
+            font-size: 22px;
+            font-weight: bold;
+        }
+        
+        #silver-value { color: #C0C0C0; }
+        #merit-value { color: #FFD700; }
+        #rice-value { color: #98FB98; }
+        #reputation-value { color: #9370DB; }
+        
+        /* 按钮 - 中等大小 */
+        .btn {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        /* 特殊按钮样式 */
+        .btn-special {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #F44336, #D32F2F);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+        }
+        
+        /* 客人卡片 */
+        .guest-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 12px 0;
+            border: 2px solid #555;
+        }
+        
+        .guest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .guest-name {
+            font-size: 20px;
+            color: #FFD700;
+            font-weight: bold;
+        }
+        
+        .guest-type {
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .type-live { background: #2E8B57; }
+        .type-ghost { background: #8B008B; }
+        .type-special { background: #FF9800; }
+        
+        .guest-desc {
+            color: #ccc;
+            margin: 10px 0;
+            font-style: italic;
+        }
+        
+        .guest-needs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .need-box, .reward-box {
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 16px;
+        }
+        
+        .need-box {
+            background: rgba(255, 107, 107, 0.2);
+            border: 1px solid #FF6B6B;
+        }
+        
+        .reward-box {
+            background: rgba(78, 205, 196, 0.2);
+            border: 1px solid #4ECDC4;
+        }
+        
+        .guest-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .guest-actions .btn {
+            padding: 10px;
+            font-size: 16px;
+            margin: 0;
+        }
+        
+        /* 事件通知 */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            max-width: 300px;
+            display: none;
+            animation: slideIn 0.3s, fadeOut 0.3s 2.7s;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        /* 空状态提示 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #888;
+        }
+        
+        .empty-state-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+        
+        /* 图标大小 */
+        .icon {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+        
+        .btn .icon {
+            font-size: 20px;
+        }
+        
+        /* 按钮组 */
+        .btn-group {
+            margin: 15px 0;
+        }
+        
+        .btn-group-title {
+            font-size: 18px;
+            color: #FFD700;
+            margin-bottom: 10px;
+            padding-left: 10px;
+            border-left: 3px solid #FFD700;
+        }
+        
+        /* 天气特效 */
+        .weather-effect {
+            background: rgba(135, 206, 235, 0.1);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #87CEEB;
+            text-align: center;
+        }
+        
+        /* 响应式调整 */
+        @media (max-height: 600px) {
+            .btn { padding: 12px 16px; font-size: 16px; }
+            .guest-card { padding: 12px; }
+            .resource-item { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 加载界面 -->
+    <div id="loading">
+        <div class="loading-logo">💬</div>
+        <h2>灵境客栈</h2>
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="loading-text">正在连接阴阳两界...</div>
+    </div>
+
+    <!-- 游戏主界面 -->
+    <div id="game">
+        <div class="game-container">
+            <!-- 左侧：状态面板 -->
+            <div class="left-panel">
+                <div class="top-bar">
+                    <div id="day-display">第 <span id="current-day">1</span> 天</div>
+                    <div id="weather">☀️ 晴朗</div>
+                </div>
+                
+                <div class="weather-effect" id="weather-effect">
+                    今日天气良好，客人出现率+20%
+                </div>
+                
+                <div class="resources">
+                    <div class="resource-item">
+                        <div class="resource-name">💰 白银</div>
+                        <div id="silver-value" class="resource-value">100</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-name">🙏 功德</div>
+                        <div id="merit-value" class="resource-value">100</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-name">🍚 阴米</div>
+                        <div id="rice-value" class="resource-value">20</div>
+                    </div>
+                    <div class="resource-item">
+                        <div class="resource-name">⭐ 声望</div>
+                        <div id="reputation-value" class="resource-value">0</div>
+                    </div>
+                </div>
+                
+                <div class="btn-group">
+                    <div class="btn-group-title">客栈信息</div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                        <div>等级：<span id="inn-level">1</span></div>
+                        <div>容量：<span id="max-guests">3</span>/3</div>
+                        <div>阴米产出：<span id="rice-per-day">5</span>/天</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 中间：客人区域 -->
+            <div class="center-panel" id="guests-panel">
+                <!-- 客人列表会动态加载到这里 -->
+                <div class="empty-state" id="empty-guests">
+                    <div class="empty-state-icon">🏮</div>
+                    <div style="font-size: 20px; margin-bottom: 10px;">客栈空空如也</div>
+                    <div>点击"召唤客人"按钮召唤客人</div>
+                </div>
+            </div>
+            
+            <!-- 右侧：操作面板 -->
+            <div class="right-panel">
+                <div class="btn-group">
+                    <div class="btn-group-title">客人管理</div>
+                    <button class="btn" onclick="generateGuest()">
+                        <span class="icon">👥</span>召唤客人
+                    </button>
+                    <button class="btn btn-warning" onclick="refreshGuests()">
+                        <span class="icon">🔄</span>刷新客人
+                    </button>
+                </div>
+                
+                <div class="btn-group">
+                    <div class="btn-group-title">客栈操作</div>
+                    <button class="btn btn-special" onclick="explore()">
+                        <span class="icon">🗺️</span>外出探索
+                    </button>
+                    <button class="btn" onclick="upgradeInn()">
+                        <span class="icon">🏗️</span>客栈升级
+                    </button>
+                    <button class="btn" onclick="nextDay()">
+                        <span class="icon">📅</span>进入下一天
+                    </button>
+                </div>
+                
+                <div class="btn-group">
+                    <div class="btn-group-title">游戏管理</div>
+                    <button class="btn" onclick="saveGame()">
+                        <span class="icon">💾</span>保存游戏
+                    </button>
+                    <button class="btn" onclick="loadGame()">
+                        <span class="icon">📂</span>加载游戏
+                    </button>
+                    <button class="btn btn-danger" onclick="resetGame()">
+                        <span class="icon">🔄</span>重置游戏
+                    </button>
+                </div>
+                
+                <div class="btn-group">
+                    <div class="btn-group-title">特殊功能</div>
+                    <button class="btn btn-special" onclick="useSpecialPower()">
+                        <span class="icon">✨</span>使用神通
+                    </button>
+                    <button class="btn" onclick="checkAchievements()">
+                        <span class="icon">🏆</span>查看成就
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知区域 -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        // 游戏状态
+        let gameState = {
+            silver: 100,
+            merit: 100,
+            rice: 20,
+            reputation: 0,
+            day: 1,
+            weather: "晴朗",
+            guests: [],
+            innLevel: 1,
+            maxGuests: 3,
+            ricePerDay: 5,
+            specialPower: 3,
+            achievements: []
+        };
+
+        // 客人类型
+        const guestTypes = [
+            { name: "书生", type: "活人", desc: "赴京赶考的书生", need: "silver", needAmount: 3, reward: "silver", rewardAmount: 8, rarity: "普通" },
+            { name: "商人", type: "活人", desc: "西域来的胡商", need: "silver", needAmount: 8, reward: "silver", rewardAmount: 15, rarity: "普通" },
+            { name: "侠客", type: "活人", desc: "行走江湖的剑客", need: "silver", needAmount: 5, reward: "silver", rewardAmount: 10, rarity: "普通" },
+            { name: "官员", type: "活人", desc: "微服私访的官员", need: "silver", needAmount: 12, reward: "silver", rewardAmount: 25, rarity: "稀有" },
+            { name: "农夫", type: "活人", desc: "进城卖菜的农民", need: "silver", needAmount: 2, reward: "silver", rewardAmount: 5, rarity: "普通" },
+            { name: "和尚", type: "活人", desc: "化缘的僧人", need: "silver", needAmount: 1, reward: "merit", rewardAmount: 3, rarity: "普通" },
+            { name: "医生", type: "活人", desc: "采药的郎中", need: "silver", needAmount: 4, reward: "silver", rewardAmount: 9, rarity: "普通" },
+            { name: "歌女", type: "活人", desc: "卖艺的歌姬", need: "silver", needAmount: 6, reward: "silver", rewardAmount: 13, rarity: "普通" },
+            { name: "饿死鬼", type: "亡灵", desc: "饥饿的亡灵", need: "merit", needAmount: 2, reward: "merit", rewardAmount: 5, rarity: "普通" },
+            { name: "水鬼", type: "亡灵", desc: "溺水的魂魄", need: "merit", needAmount: 3, reward: "merit", rewardAmount: 7, rarity: "普通" },
+            { name: "吊死鬼", type: "亡灵", desc: "上吊的亡灵", need: "merit", needAmount: 4, reward: "merit", rewardAmount: 9, rarity: "普通" },
+            { name: "无头鬼", type: "亡灵", desc: "没有头的亡灵", need: "merit", needAmount: 6, reward: "merit", rewardAmount: 12, rarity: "稀有" },
+            { name: "冤死鬼", type: "亡灵", desc: "含冤而死的魂魄", need: "merit", needAmount: 5, reward: "merit", rewardAmount: 11, rarity: "普通" },
+            { name: "病鬼", type: "亡灵", desc: "病死的亡灵", need: "merit", needAmount: 3, reward: "merit", rewardAmount: 6, rarity: "普通" },
+            { name: "战鬼", type: "亡灵", desc: "战死的士兵", need: "merit", needAmount: 7, reward: "merit", rewardAmount: 15, rarity: "稀有" },
+            { name: "婴灵", type: "亡灵", desc: "夭折的婴儿魂魄", need: "merit", needAmount: 1, reward: "merit", rewardAmount: 4, rarity: "普通" }
+        ];
+
+        // 天气效果
+        const weatherEffects = {
+            "晴朗": { icon: "☀️", effect: "客人出现率+20%", multiplier: 1.2 },
+            "阴天": { icon: "☁️", effect: "一切正常", multiplier: 1.0 },
+            "雨天": { icon: "🌧️", effect: "客人出现率-30%", multiplier: 0.7 },
+            "月圆": { icon: "🌕", effect: "亡灵客人奖励+50%", multiplier: 1.5 }
+        };
+
+        // 加载动画
+        function startLoading() {
+            const progressBar = document.getElementById('progress-bar');
+            const loadingText = document.getElementById('loading-text');
+            
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += 2;
+                progressBar.style.width = progress + '%';
+                
+                if (progress <= 30) loadingText.textContent = "正在连接阴阳两界...";
+                else if (progress <= 60) loadingText.textContent = "加载客人数据...";
+                else if (progress <= 90) loadingText.textContent = "初始化客栈系统...";
+                else loadingText.textContent = "准备迎接客人...";
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(finishLoading, 500);
+                }
+            }, 50);
+        }
+
+        // 完成加载
+        function finishLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            updateDisplay();
+            showNotification("欢迎来到灵境客栈！", "success");
+        }
+
+        // 更新显示
+        function updateDisplay() {
+            // 更新资源
+            document.getElementById('silver-value').textContent = gameState.silver;
+            document.getElementById('merit-value').textContent = gameState.merit;
+            document.getElementById('rice-value').textContent = gameState.rice;
+            document.getElementById('reputation-value').textContent = gameState.reputation;
+            
+            // 更新天数
+            document.getElementById('current-day').textContent = gameState.day;
+            
+            // 更新天气
+            const weather = weatherEffects[gameState.weather];
+            document.getElementById('weather').innerHTML = `${weather.icon} ${gameState.weather}`;
+            document.getElementById('weather-effect').textContent = `今日天气：${gameState.weather}，${weather.effect}`;
+            
+            // 更新客栈信息
+            document.getElementById('inn-level').textContent = gameState.innLevel;
+            document.getElementById('max-guests').textContent = `${gameState.guests.length}/${gameState.maxGuests}`;
+            document.getElementById('rice-per-day').textContent = gameState.ricePerDay;
+            
+            // 更新客人列表
+            displayGuests();
+        }
+
+        // 显示通知
+        function showNotification(message, type = "info") {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            
+            // 设置颜色
+            const colors = {
+                success: "linear-gradient(135deg, #4CAF50, #45a049)",
+                warning: "linear-gradient(135deg, #FF9800, #F57C00)",
+                error: "linear-gradient(135deg, #F44336, #D32F2F)",
+                info: "linear-gradient(135deg, #2196F3, #1976D2)"
+            };
+            
+            notification.style.background = colors[type] || colors.info;
+            notification.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // 显示客人
+        function displayGuests() {
+            const guestsPanel = document.getElementById('guests-panel');
+            const emptyGuests = document.getElementById('empty-guests');
+            
+            if (gameState.guests.length === 0) {
+                emptyGuests.style.display = 'block';
+                return;
+            }
+            
+            emptyGuests.style.display = 'none';
+            guestsPanel.innerHTML = '';
+            
+            gameState.guests.forEach((guest, index) => {
+                const guestCard = document.createElement('div');
+                guestCard.className = 'guest-card';
+                
+                // 计算天气影响的奖励
+                const weatherEffect = weatherEffects[gameState.weather];
+                const finalReward = Math.floor(guest.rewardAmount * 
+                    (guest.type === "亡灵" && gameState.weather === "月圆" ? 1.5 : 1.0));
+                
+                guestCard.innerHTML = `
+                    <div class="guest-header">
+                        <div class="guest-name">${guest.name}</div>
+                        <div class="guest-type ${guest.type === '活人' ? 'type-live' : 'type-ghost'}">
+                            ${guest.type} · ${guest.rarity}
+                        </div>
+                    </div>
+                    <div class="guest-desc">${guest.desc}</div>
+                    <div class="guest-needs">
+                        <div class="need-box">
+                            <div>需要</div>
+                            <div style="font-size: 18px; color: #FF6B6B; margin-top: 5px;">
+                                ${guest.needAmount} ${guest.need === 'silver' ? '白银' : '功德'}
+                            </div>
+                        </div>
+                        <div class="reward-box">
+                            <div>奖励</div>
+                            <div style="font-size: 18px; color: #4ECDC4; margin-top: 5px;">
+                                ${finalReward} ${guest.reward === 'silver' ? '白银' : '功德'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="guest-actions">
+                        <button class="btn" onclick="serveGuest(${index})" ${canServe(guest) ? '' : 'disabled'}>
+                            招待
+                        </button>
+                        <button class="btn btn-special" onclick="chatGuest(${index})">
+                            交流
+                        </button>
+                        <button class="btn" onclick="bargainGuest(${index})">
+                            议价
+                        </button>
+                        <button class="btn btn-danger" onclick="refuseGuest(${index})">
+                            拒绝
+                        </button>
+                    </div>
+                `;
+                
+                guestsPanel.appendChild(guestCard);
+            });
+        }
+
+        // 检查是否能招待
+        function canServe(guest) {
+            if (guest.need === 'silver') {
+                return gameState.silver >= guest.needAmount;
+            } else {
+                return gameState.merit >= guest.needAmount;
+            }
+        }
+
+        // 生成随机天气
+        function generateWeather() {
+            const weathers = Object.keys(weatherEffects);
+            gameState.weather = weathers[Math.floor(Math.random() * weathers.length)];
+        }
+
+        // 召唤客人
+        function generateGuest() {
+            if (gameState.guests.length >= gameState.maxGuests) {
+                showNotification(`客栈已满！最多只能有 ${gameState.maxGuests} 位客人。`, "warning");
+                return;
+            }
+            
+            // 天气影响出现概率
+            const weatherEffect = weatherEffects[gameState.weather];
+            if (Math.random() > weatherEffect.multiplier) {
+                showNotification("今天天气不好，没有客人前来", "warning");
+                return;
+            }
+            
+            const randomIndex = Math.floor(Math.random() * guestTypes.length);
+            const guest = { ...guestTypes[randomIndex], id: Date.now() };
+            
+            gameState.guests.push(guest);
+            updateDisplay();
+            showNotification(`${guest.name}来到了客栈`, "success");
+        }
+
+        // 刷新客人
+        function refreshGuests() {
+            if (gameState.guests.length > 0) {
+                if (!confirm("确定要刷新所有客人吗？当前客人会全部离开。")) {
+                    return;
+                }
+            }
+            
+            gameState.guests = [];
+            for (let i = 0; i < 3; i++) {
+                generateGuest();
+            }
+            
+            showNotification("已刷新所有客人", "info");
+        }
+
+        // 招待客人
+        function serveGuest(index) {
+            const guest = gameState.guests[index];
+            
+            if (!canServe(guest)) {
+                showNotification(`资源不足！需要 ${guest.needAmount} ${guest.need === 'silver' ? '白银' : '功德'}`, "error");
+                return;
+            }
+            
+            // 扣除资源
+            if (guest.need === 'silver') {
+                gameState.silver -= guest.needAmount;
+            } else {
+                gameState.merit -= guest.needAmount;
+            }
+            
+            // 计算奖励（考虑天气）
+            const weatherEffect = weatherEffects[gameState.weather];
+            let finalReward = guest.rewardAmount;
+            if (guest.type === "亡灵" && gameState.weather === "月圆") {
+                finalReward = Math.floor(finalReward * 1.5);
+            }
+            
+            // 给予奖励
+            if (guest.reward === 'silver') {
+                gameState.silver += finalReward;
+                showNotification(`成功招待${guest.name}，获得${finalReward}白银！`, "success");
+            } else {
+                gameState.merit += finalReward;
+                showNotification(`成功招待${guest.name}，获得${finalReward}功德！`, "success");
+            }
+            
+            // 亡灵消耗阴米
+            if (guest.type === '亡灵') {
+                gameState.rice = Math.max(0, gameState.rice - 1);
+            }
+            
+            // 移除客人
+            gameState.guests.splice(index, 1);
+            updateDisplay();
+        }
+
+        // 与客人交流
+        function chatGuest(index) {
+            const guest = gameState.guests[index];
+            const messages = [
+                `${guest.name}说："掌柜的生意兴隆啊！"`,
+                `与${guest.name}聊天，心情愉悦！`,
+                `${guest.name}讲述了一个有趣的故事...`,
+                `${guest.name}对客栈的服务表示满意。`
+            ];
+            
+            const message = messages[Math.floor(Math.random() * messages.length)];
+            showNotification(message, "info");
+            
+            // 有小概率获得声望
+            if (Math.random() > 0.7) {
+                gameState.reputation += 5;
+                showNotification("获得5点声望", "success");
+                updateDisplay();
+            }
+        }
+
+        // 议价
+        function bargainGuest(index) {
+            const guest = gameState.guests[index];
+            
+            if (guest.type === '亡灵') {
+                showNotification("亡灵无法议价", "warning");
+                return;
+            }
+            
+            if (Math.random() > 0.5) {
+                // 议价成功
+                const discount = Math.floor(guest.needAmount * 0.3);
+                guest.needAmount = Math.max(1, guest.needAmount - discount);
+                showNotification(`议价成功！${guest.name}的要求降低${discount}`, "success");
+                updateDisplay();
+            } else {
+                // 议价失败
+                guest.needAmount = Math.floor(guest.needAmount * 1.2);
+                showNotification("议价失败，客人有些不悦", "warning");
+                updateDisplay();
+            }
+        }
+
+        // 拒绝客人
+        function refuseGuest(index) {
+            const guest = gameState.guests[index];
+            gameState.guests.splice(index, 1);
+            
+            if (guest.type === '亡灵' && Math.random() > 0.5) {
+                gameState.reputation = Math.max(0, gameState.reputation - 10);
+                showNotification(`${guest.name}被激怒了！声望降低10点`, "error");
+            } else {
+                showNotification(`拒绝了${guest.name}`, "info");
+            }
+            
+            updateDisplay();
+        }
+
+        // 外出探索
+        function explore() {
+            const events = [
+                {
+                    name: "发现宝箱",
+                    message: "在野外发现了一个宝箱！",
+                    reward: { type: "silver", amount: 50 }
+                },
+                {
+                    name: "救助路人",
+                    message: "救助了一位受伤的路人",
+                    reward: { type: "reputation", amount: 15 }
+                },
+                {
+                    name: "采集草药",
+                    message: "采集到珍稀草药",
+                    reward: { type: "rice", amount: 10 }
+                },
+                {
+                    name: "遭遇山贼",
+                    message: "不幸遭遇山贼，损失了一些钱财",
+                    reward: { type: "silver", amount: -30 }
+                }
+            ];
+            
+            const event = events[Math.floor(Math.random() * events.length)];
+            
+            // 应用奖励
+            if (event.reward.type === 'silver') {
+                gameState.silver += event.reward.amount;
+            } else if (event.reward.type === 'reputation') {
+                gameState.reputation += event.reward.amount;
+            } else if (event.reward.type === 'rice') {
+                gameState.rice += event.reward.amount;
+            }
+            
+            showNotification(`探索结果：${event.message}`, "info");
+            updateDisplay();
+        }
+
+        // 客栈升级
+        function upgradeInn() {
+            const upgrades = [
+                { name: "扩建客房", cost: 50, effect: "maxGuests", value: 1 },
+                { name: "改良农田", cost: 30, effect: "ricePerDay", value: 2 },
+                { name: "装饰客栈", cost: 40, effect: "reputation", value: 10 }
+            ];
+            
+            let options = "请选择升级项目：\n";
+            upgrades.forEach((upgrade, index) => {
+                options += `${index + 1}. ${upgrade.name} - 花费${upgrade.cost}白银\n`;
+            });
+            
+            const choice = prompt(options + "\n输入编号：");
+            if (!choice) return;
+            
+            const index = parseInt(choice) - 1;
+            if (isNaN(index) || index < 0 || index >= upgrades.length) {
+                showNotification("无效的选择", "error");
+                return;
+            }
+            
+            const upgrade = upgrades[index];
+            
+            if (gameState.silver < upgrade.cost) {
+                showNotification(`白银不足！需要${upgrade.cost}白银`, "error");
+                return;
+            }
+            
+            gameState.silver -= upgrade.cost;
+            
+            if (upgrade.effect === "maxGuests") {
+                gameState.maxGuests += upgrade.value;
+            } else if (upgrade.effect === "ricePerDay") {
+                gameState.ricePerDay += upgrade.value;
+            } else if (upgrade.effect === "reputation") {
+                gameState.reputation += upgrade.value;
+            }
+            
+            gameState.innLevel += 1;
+            showNotification(`成功升级：${upgrade.name}`, "success");
+            updateDisplay();
+        }
+
+        // 使用神通
+        function useSpecialPower() {
+            if (gameState.specialPower <= 0) {
+                showNotification("神通次数不足！", "warning");
+                return;
+            }
+            
+            const powers = [
+                { name: "点石成金", effect: () => gameState.silver += 100 },
+                { name: "功德加持", effect: () => gameState.merit += 50 },
+                { name: "阴米丰收", effect: () => gameState.rice += 20 },
+                { name: "吸引客人", effect: () => { for(let i=0; i<3; i++) generateGuest(); } }
+            ];
+            
+            let options = "请选择神通：\n";
+            powers.forEach((power, index) => {
+                options += `${index + 1}. ${power.name}\n`;
+            });
+            
+            const choice = prompt(options + "\n输入编号：");
+            if (!choice) return;
+            
+            const index = parseInt(choice) - 1;
+            if (isNaN(index) || index < 0 || index >= powers.length) {
+                showNotification("无效的选择", "error");
+                return;
+            }
+            
+            gameState.specialPower -= 1;
+            powers[index].effect();
+            showNotification(`使用神通：${powers[index].name}`, "success");
+            updateDisplay();
+        }
+
+        // 查看成就
+        function checkAchievements() {
+            const achievements = [
+                { name: "初来乍到", desc: "招待第一位客人", achieved: gameState.reputation > 0 },
+                { name: "日进斗金", desc: "单日获得100白银", achieved: false },
+                { name: "功德无量", desc: "积累500功德", achieved: gameState.merit >= 500 },
+                { name: "宾至如归", desc: "招待10位客人", achieved: false }
+            ];
+            
+            let message = "🏆 成就列表：\n\n";
+            achievements.forEach(ach => {
+                message += `${ach.achieved ? "✅" : "⬜"} ${ach.name}\n`;
+                message += `   ${ach.desc}\n\n`;
+            });
+            
+            alert(message);
+        }
+
+        // 下一天
+        function nextDay() {
+            gameState.day += 1;
+            
+            // 每天产出阴米
+            gameState.rice += gameState.ricePerDay;
+            
+            // 生成新天气
+            generateWeather();
+            
+            // 清空未招待的客人
+            if (gameState.guests.length > 0) {
+                const leftCount = gameState.guests.length;
+                gameState.guests.forEach(guest => {
+                    if (guest.type === '亡灵') {
+                        gameState.reputation = Math.max(0, gameState.reputation - 5);
+                    }
+                });
+                gameState.guests = [];
+                showNotification(`${leftCount}位客人离开了客栈`, "warning");
+            }
+            
+            // 随机事件
+            if (Math.random() > 0.7) {
+                const events = [
+                    { message: "今天客栈生意兴隆！", effect: () => gameState.silver += 20 },
+                    { message: "有善人捐赠功德", effect: () => gameState.merit += 15 },
+                    { message: "获得特殊物品", effect: () => gameState.specialPower += 1 }
+                ];
+                
+                const event = events[Math.floor(Math.random() * events.length)];
+                event.effect();
+                showNotification(event.message, "info");
+            }
+            
+            updateDisplay();
+            showNotification(`进入第${gameState.day}天！`, "success");
+        }
+
+        // 保存游戏
+        function saveGame() {
+            localStorage.setItem('lingjingInnSave', JSON.stringify(gameState));
+            showNotification("游戏已保存！", "success");
+        }
+
+        // 加载游戏
+        function loadGame() {
+            const saveData = localStorage.getItem('lingjingInnSave');
+            if (saveData) {
+                gameState = JSON.parse(saveData);
+                updateDisplay();
+                showNotification("游戏已加载！", "success");
+            } else {
+                showNotification("没有找到保存的游戏！", "error");
+            }
+        }
+
+        // 重置游戏
+        function resetGame() {
+            if (confirm("确定要重置游戏吗？所有进度都会丢失！")) {
+                gameState = {
+                    silver: 100,
+                    merit: 100,
+                    rice: 20,
+                    reputation: 0,
+                    day: 1,
+                    weather: "晴朗",
+                    guests: [],
+                    innLevel: 1,
+                    maxGuests: 3,
+                    ricePerDay: 5,
+                    specialPower: 3,
+                    achievements: []
+                };
+                updateDisplay();
+                showNotification("游戏已重置！", "success");
+            }
+        }
+
+        // 页面加载完成后开始
+        window.onload = startLoading;
+        
+        // 监听横竖屏变化
+        window.addEventListener("orientationchange", function() {
+            if (window.orientation === 90 || window.orientation === -90) {
+                // 横屏
+                document.body.style.transform = "rotate(0deg)";
+            } else {
+                // 竖屏 - 显示提示
+                if (document.getElementById('game').style.display !== 'none') {
+                    alert("请将手机横屏以获得最佳游戏体验！");
+                }
+            }
+        });
+    </script>
+</body>
+</html>
