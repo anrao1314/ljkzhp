@@ -99,6 +99,23 @@
             color: #87CEEB;
         }
         
+        /* 音乐控制按钮 */
+        .music-control {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 100;
+            font-size: 20px;
+        }
+        
         .resources-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -191,6 +208,46 @@
             margin-bottom: 8px;
         }
         
+        /* 特殊客人样式 */
+        .special-guest {
+            border: 2px solid #FFD700 !important;
+            background: linear-gradient(135deg, rgba(255,215,0,0.1), rgba(255,215,0,0.05)) !important;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .special-guest::before {
+            content: "✨";
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 20px;
+            animation: sparkle 2s infinite;
+        }
+        
+        @keyframes sparkle {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        
+        .guest-rarity {
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            font-weight: bold;
+        }
+        
+        .legendary {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+        }
+        
+        .rare {
+            background: linear-gradient(135deg, #9370DB, #8A2BE2);
+            color: white;
+        }
+        
         .guest-card {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 8px;
@@ -210,6 +267,8 @@
             font-size: 16px;
             color: #FFD700;
             font-weight: bold;
+            display: flex;
+            align-items: center;
         }
         
         .guest-type {
@@ -221,12 +280,20 @@
         
         .type-live { background: #2E8B57; }
         .type-ghost { background: #8B008B; }
+        .type-god { background: #FFD700; color: #000; }
+        .type-monster { background: #FF4500; }
         
         .guest-desc {
             font-size: 13px;
             color: #ccc;
             margin: 5px 0;
             font-style: italic;
+        }
+        
+        .special-effect {
+            color: #9370DB;
+            font-size: 12px;
+            margin: 3px 0;
         }
         
         .guest-stats {
@@ -292,6 +359,7 @@
             text-align: center;
             animation: slideUp 0.3s, fadeOut 0.3s 2.7s;
             display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
         
         @keyframes slideUp {
@@ -312,6 +380,10 @@
     </style>
 </head>
 <body>
+    <!-- 音乐控制 -->
+    <div class="music-control" id="music-toggle" onclick="toggleMusic()">🎵</div>
+    
+    <!-- 加载界面 -->
     <div id="loading">
         <div class="loading-logo">🏮</div>
         <h3>灵境客栈</h3>
@@ -321,12 +393,14 @@
         <div id="loading-text">正在连接阴阳两界...</div>
     </div>
 
+    <!-- 游戏主界面 -->
     <div id="game">
         <div class="game-header">
             <div class="game-title">🏮 灵境客栈</div>
             <div class="day-info">第 <span id="current-day">1</span> 天</div>
         </div>
         
+        <!-- 资源显示 -->
         <div class="resources-grid">
             <div class="resource-item">
                 <div class="resource-name">白银</div>
@@ -346,6 +420,7 @@
             </div>
         </div>
         
+        <!-- 操作按钮 -->
         <div class="btn-group">
             <div class="btn-group-title">客栈操作</div>
             <div class="btn-row">
@@ -355,9 +430,11 @@
             <div class="btn-row">
                 <button class="btn btn-special" onclick="nextDay()">下一天</button>
                 <button class="btn" onclick="upgradeInn()">客栈升级</button>
+                <button class="btn btn-special" onclick="useSpecialItem()" style="grid-column: span 2;">使用特殊物品</button>
             </div>
         </div>
         
+        <!-- 客人区域 -->
         <div id="guests-section">
             <div class="btn-group-title">当前客人</div>
             
@@ -372,6 +449,7 @@
             <div id="guests-list"></div>
         </div>
         
+        <!-- 其他功能 -->
         <div class="btn-group">
             <div class="btn-group-title">其他功能</div>
             <div class="btn-row">
@@ -383,7 +461,13 @@
         </div>
     </div>
     
+    <!-- 通知 -->
     <div id="notification" class="notification"></div>
+
+    <!-- 背景音乐 -->
+    <audio id="bg-music" loop>
+        <source src="https://m.kugou.com/share/song.html?chain=6h9J147FXV2" type="audio/mpeg">
+    </audio>
 
     <script>
         // 游戏状态
@@ -396,10 +480,12 @@
             guests: [],
             innLevel: 1,
             maxGuests: 3,
-            ricePerDay: 5
+            ricePerDay: 5,
+            specialItems: [],
+            musicEnabled: true
         };
 
-        // 客人数据
+        // 普通客人数据
         const guestTypes = [
             { name: "书生", type: "活人", desc: "赴京赶考的书生", need: "silver", needAmount: 3, reward: "silver", rewardAmount: 8 },
             { name: "商人", type: "活人", desc: "西域来的胡商", need: "silver", needAmount: 8, reward: "silver", rewardAmount: 15 },
@@ -418,6 +504,136 @@
             { name: "战鬼", type: "亡灵", desc: "战死的士兵", need: "merit", needAmount: 7, reward: "merit", rewardAmount: 15 },
             { name: "婴灵", type: "亡灵", desc: "夭折的婴儿魂魄", need: "merit", needAmount: 1, reward: "merit", rewardAmount: 4 }
         ];
+
+        // 特殊客人数据
+        const specialGuests = [
+            {
+                name: "孟婆",
+                type: "鬼神",
+                desc: "来自阴间的使者，掌管轮回",
+                need: "merit",
+                needAmount: 30,
+                reward: "silver",
+                rewardAmount: 100,
+                special: "赠送孟婆汤（+50功德）",
+                rarity: "传说"
+            },
+            {
+                name: "财神",
+                type: "神仙", 
+                desc: "掌管财运的神仙，财运亨通",
+                need: "silver",
+                needAmount: 50,
+                reward: "silver",
+                rewardAmount: 200,
+                special: "财运祝福（下一天收入翻倍）",
+                rarity: "传说"
+            },
+            {
+                name: "黑白无常",
+                type: "鬼神",
+                desc: "勾魂使者，阴气森森",
+                need: "merit",
+                needAmount: 40,
+                reward: "merit",
+                rewardAmount: 80,
+                special: "拘魂索（可拘禁一个恶鬼）",
+                rarity: "稀有"
+            },
+            {
+                name: "狐仙",
+                type: "妖怪",
+                desc: "修炼千年的狐狸精，妩媚动人",
+                need: "silver",
+                needAmount: 25,
+                reward: "reputation",
+                rewardAmount: 50,
+                special: "魅惑之术（提高后续客人出现率）",
+                rarity: "稀有"
+            },
+            {
+                name: "土地公",
+                type: "神仙",
+                desc: "本地守护神，慈眉善目",
+                need: "merit",
+                needAmount: 15,
+                reward: "rice",
+                rewardAmount: 30,
+                special: "土地祝福（阴米产量永久+2）",
+                rarity: "稀有"
+            },
+            {
+                name: "钟馗",
+                type: "鬼神",
+                desc: "捉鬼天师，正气凛然",
+                need: "merit",
+                needAmount: 35,
+                reward: "special",
+                rewardAmount: "斩鬼剑",
+                special: "斩妖除魔（立即获得100功德）",
+                rarity: "传说"
+            },
+            {
+                name: "花魁",
+                type: "活人",
+                desc: "风华绝代的花楼头牌",
+                need: "silver",
+                needAmount: 40,
+                reward: "silver",
+                rewardAmount: 80,
+                special: "倾城一笑（声望+30）",
+                rarity: "稀有"
+            },
+            {
+                name: "酒仙",
+                type: "妖怪",
+                desc: "好酒如命的酒中仙",
+                need: "silver",
+                needAmount: 20,
+                reward: "special",
+                rewardAmount: "仙酒",
+                special: "醉酒当歌（随机增加一种资源）",
+                rarity: "稀有"
+            }
+        ];
+
+        // 音乐控制
+        function toggleMusic() {
+            const music = document.getElementById('bg-music');
+            const toggleBtn = document.getElementById('music-toggle');
+            
+            gameState.musicEnabled = !gameState.musicEnabled;
+            
+            if (gameState.musicEnabled) {
+                music.play().catch(e => console.log("音乐播放需要用户交互"));
+                toggleBtn.textContent = "🎵";
+                showNotification("背景音乐已开启", "info");
+            } else {
+                music.pause();
+                toggleBtn.textContent = "🔇";
+                showNotification("背景音乐已关闭", "info");
+            }
+        }
+
+        // 播放音效
+        function playSound(type) {
+            if (!gameState.musicEnabled) return;
+            
+            const audio = new Audio();
+            switch(type) {
+                case 'success':
+                    audio.src = 'https://assets.mixkit.co/active_storage/sfx/286/286-preview.mp3';
+                    break;
+                case 'coin':
+                    audio.src = 'https://assets.mixkit.co/active_storage/sfx/294/294-preview.mp3';
+                    break;
+                case 'magic':
+                    audio.src = 'https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3';
+                    break;
+            }
+            audio.volume = 0.3;
+            audio.play().catch(e => console.log("音效播放失败"));
+        }
 
         // 加载动画
         function startLoading() {
@@ -447,6 +663,15 @@
             document.getElementById('game').style.display = 'block';
             updateDisplay();
             showNotification("欢迎来到灵境客栈！");
+            
+            // 尝试播放背景音乐（需要用户交互）
+            try {
+                const music = document.getElementById('bg-music');
+                music.volume = 0.3;
+                if (gameState.musicEnabled) {
+                    setTimeout(() => music.play().catch(() => {}), 1000);
+                }
+            } catch(e) {}
         }
 
         // 更新显示
@@ -473,7 +698,8 @@
                 success: "linear-gradient(135deg, #4CAF50, #45a049)",
                 warning: "linear-gradient(135deg, #FF9800, #F57C00)",
                 error: "linear-gradient(135deg, #F44336, #D32F2F)",
-                info: "linear-gradient(135deg, #2196F3, #1976D2)"
+                info: "linear-gradient(135deg, #2196F3, #1976D2)",
+                special: "linear-gradient(135deg, #9370DB, #8A2BE2)"
             };
             
             notification.style.background = colors[type] || colors.info;
@@ -482,9 +708,13 @@
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 3000);
+            
+            // 播放音效
+            if (type === 'success') playSound('success');
+            if (type === 'special') playSound('magic');
         }
 
-        // 显示客人 - 修复版！这是关键
+        // 显示客人
         function displayGuests() {
             const emptyGuests = document.getElementById('empty-guests');
             const guestsList = document.getElementById('guests-list');
@@ -494,28 +724,40 @@
             
             // 检查是否有客人
             if (gameState.guests.length === 0) {
-                // 没有客人：显示空状态，隐藏列表
                 emptyGuests.style.display = 'block';
                 return;
             }
             
-            // 有客人：隐藏空状态，显示客人列表
+            // 有客人：隐藏空状态
             emptyGuests.style.display = 'none';
             
             // 重新生成所有客人卡片
             gameState.guests.forEach((guest, index) => {
                 const guestCard = document.createElement('div');
-                guestCard.className = 'guest-card';
-                guestCard.dataset.index = index;
+                
+                // 判断是否是特殊客人
+                const isSpecial = guest.rarity === "传说" || guest.rarity === "稀有";
+                guestCard.className = isSpecial ? 'guest-card special-guest' : 'guest-card';
+                
+                // 类型样式
+                let typeClass = 'type-live';
+                if (guest.type === '亡灵') typeClass = 'type-ghost';
+                if (guest.type === '鬼神' || guest.type === '神仙') typeClass = 'type-god';
+                if (guest.type === '妖怪') typeClass = 'type-monster';
+                
+                // 稀有度标签
+                const rarityTag = guest.rarity ? 
+                    `<span class="guest-rarity ${guest.rarity === '传说' ? 'legendary' : 'rare'}">${guest.rarity}</span>` : '';
                 
                 guestCard.innerHTML = `
                     <div class="guest-header">
-                        <div class="guest-name">${guest.name}</div>
-                        <div class="guest-type ${guest.type === '活人' ? 'type-live' : 'type-ghost'}">
+                        <div class="guest-name">${guest.name}${rarityTag}</div>
+                        <div class="guest-type ${typeClass}">
                             ${guest.type}
                         </div>
                     </div>
                     <div class="guest-desc">${guest.desc}</div>
+                    ${guest.special ? `<div class="special-effect">✨ ${guest.special}</div>` : ''}
                     <div class="guest-stats">
                         <div class="need-box">
                             <div>需要</div>
@@ -526,7 +768,10 @@
                         <div class="reward-box">
                             <div>奖励</div>
                             <div style="font-size: 14px; color: #4ECDC4; margin-top: 3px;">
-                                ${guest.rewardAmount} ${guest.reward === 'silver' ? '白银' : '功德'}
+                                ${guest.rewardAmount} ${guest.reward === 'silver' ? '白银' : 
+                                                       guest.reward === 'merit' ? '功德' : 
+                                                       guest.reward === 'reputation' ? '声望' : 
+                                                       guest.reward === 'rice' ? '阴米' : '特殊物品'}
                             </div>
                         </div>
                     </div>
@@ -566,12 +811,26 @@
                 return;
             }
             
+            // 15%概率出现特殊客人
+            if (Math.random() < 0.15) {
+                const randomIndex = Math.floor(Math.random() * specialGuests.length);
+                const specialGuest = { ...specialGuests[randomIndex], id: Date.now() };
+                
+                gameState.guests.push(specialGuest);
+                updateDisplay();
+                
+                playSound('magic');
+                showNotification(`✨ 特殊客人【${specialGuest.name}】降临客栈！`, "special");
+                return;
+            }
+            
+            // 普通客人
             const randomIndex = Math.floor(Math.random() * guestTypes.length);
             const guest = { ...guestTypes[randomIndex], id: Date.now() };
             
             gameState.guests.push(guest);
             updateDisplay();
-            showNotification(`${guest.name}来到了客栈`, "success");
+            showNotification(`${guest.name}来到了客栈`, "info");
         }
 
         // 招待客人
@@ -590,27 +849,129 @@
                 gameState.merit -= guest.needAmount;
             }
             
-            // 给予奖励
+            // 给予基础奖励
             if (guest.reward === 'silver') {
                 gameState.silver += guest.rewardAmount;
-                showNotification(`成功招待${guest.name}，获得${guest.rewardAmount}白银！`, "success");
-            } else {
+            } else if (guest.reward === 'merit') {
                 gameState.merit += guest.rewardAmount;
-                showNotification(`成功招待${guest.name}，获得${guest.rewardAmount}功德！`, "success");
+            } else if (guest.reward === 'reputation') {
+                gameState.reputation += guest.rewardAmount;
+            } else if (guest.reward === 'rice') {
+                gameState.rice += guest.rewardAmount;
+            } else if (guest.reward === 'special') {
+                // 获得特殊物品
+                gameState.specialItems.push(guest.rewardAmount);
             }
             
-            // 亡灵消耗阴米
-            if (guest.type === '亡灵') {
+            // 特殊客人效果
+            if (guest.rarity === "传说" || guest.rarity === "稀有") {
+                handleSpecialEffect(guest);
+            }
+            
+            // 亡灵/鬼神消耗阴米
+            if (guest.type === '亡灵' || guest.type === '鬼神') {
                 gameState.rice = Math.max(0, gameState.rice - 1);
             }
             
             // 增加声望
-            gameState.reputation += 5;
+            gameState.reputation += (guest.rarity ? 15 : 5);
             
             // 移除客人
             gameState.guests.splice(index, 1);
             
-            // 更新显示
+            updateDisplay();
+            playSound('coin');
+            
+            if (guest.rarity) {
+                showNotification(`✨ 成功招待【${guest.name}】！获得特殊奖励！`, "success");
+            } else {
+                showNotification(`成功招待${guest.name}，获得${guest.rewardAmount}${guest.reward === 'silver' ? '白银' : '功德'}！`, "success");
+            }
+        }
+
+        // 特殊效果处理
+        function handleSpecialEffect(guest) {
+            switch(guest.name) {
+                case "孟婆":
+                    gameState.merit += 50;
+                    showNotification("孟婆汤效果：功德+50", "info");
+                    break;
+                case "财神":
+                    gameState.silver += 100; // 额外奖励
+                    showNotification("财神祝福：额外获得100白银！", "success");
+                    break;
+                case "土地公":
+                    gameState.ricePerDay += 2;
+                    showNotification("土地祝福：阴米产量永久+2/天", "success");
+                    break;
+                case "钟馗":
+                    gameState.specialItems.push("斩鬼剑");
+                    showNotification("获得特殊物品：斩鬼剑", "success");
+                    break;
+                case "狐仙":
+                    gameState.reputation += 30;
+                    showNotification("狐仙魅惑：声望+30", "success");
+                    break;
+                case "花魁":
+                    gameState.reputation += 30;
+                    gameState.silver += 40;
+                    showNotification("花魁倾城一笑：声望+30，白银+40", "success");
+                    break;
+                case "酒仙":
+                    gameState.specialItems.push("仙酒");
+                    showNotification("获得特殊物品：仙酒", "success");
+                    break;
+            }
+        }
+
+        // 使用特殊物品
+        function useSpecialItem() {
+            if (gameState.specialItems.length === 0) {
+                showNotification("没有特殊物品可以使用", "warning");
+                return;
+            }
+            
+            let itemList = "选择要使用的特殊物品：\n\n";
+            gameState.specialItems.forEach((item, index) => {
+                itemList += `${index + 1}. ${item}\n`;
+            });
+            
+            const choice = prompt(itemList + "\n输入编号（输入0取消）：");
+            if (!choice || choice === "0") return;
+            
+            const index = parseInt(choice) - 1;
+            if (isNaN(index) || index < 0 || index >= gameState.specialItems.length) {
+                showNotification("无效的选择", "error");
+                return;
+            }
+            
+            const item = gameState.specialItems[index];
+            
+            // 使用物品效果
+            switch(item) {
+                case "斩鬼剑":
+                    gameState.merit += 100;
+                    showNotification("使用斩鬼剑：获得100功德", "success");
+                    break;
+                case "仙酒":
+                    const random = Math.random();
+                    if (random < 0.33) {
+                        gameState.silver += 80;
+                        showNotification("畅饮仙酒：获得80白银", "success");
+                    } else if (random < 0.66) {
+                        gameState.merit += 60;
+                        showNotification("畅饮仙酒：获得60功德", "success");
+                    } else {
+                        gameState.rice += 25;
+                        showNotification("畅饮仙酒：获得25阴米", "success");
+                    }
+                    break;
+                default:
+                    showNotification(`使用了：${item}`, "info");
+            }
+            
+            // 移除使用的物品
+            gameState.specialItems.splice(index, 1);
             updateDisplay();
         }
 
@@ -620,7 +981,8 @@
             const messages = [
                 `${guest.name}说："掌柜的生意兴隆！"`,
                 `与${guest.name}聊天，心情愉悦！`,
-                `${guest.name}讲述了一个有趣的故事...`
+                `${guest.name}讲述了一个有趣的故事...`,
+                `从${guest.name}那里听到了一些传闻...`
             ];
             
             const message = messages[Math.floor(Math.random() * messages.length)];
@@ -631,8 +993,8 @@
         function bargainGuest(index) {
             const guest = gameState.guests[index];
             
-            if (guest.type === '亡灵') {
-                showNotification("亡灵无法议价", "warning");
+            if (guest.type === '亡灵' || guest.type === '鬼神') {
+                showNotification("此客人无法议价", "warning");
                 return;
             }
             
@@ -660,7 +1022,8 @@
                 { message: "发现宝箱，获得50白银！", reward: () => gameState.silver += 50 },
                 { message: "救助路人，获得15声望", reward: () => gameState.reputation += 15 },
                 { message: "采集草药，获得10阴米", reward: () => gameState.rice += 10 },
-                { message: "遭遇山贼，损失30白银", reward: () => gameState.silver = Math.max(0, gameState.silver - 30) }
+                { message: "遭遇山贼，损失30白银", reward: () => gameState.silver = Math.max(0, gameState.silver - 30) },
+                { message: "发现神秘洞穴，获得20功德", reward: () => gameState.merit += 20 }
             ];
             
             const event = events[Math.floor(Math.random() * events.length)];
@@ -676,8 +1039,8 @@
                 return;
             }
             
-            const options = ["最大客人+1", "阴米产出+2/天", "声望+10"];
-            const choice = prompt(`选择升级项目（花费50白银）：\n1. ${options[0]}\n2. ${options[1]}\n3. ${options[2]}\n\n输入编号：`);
+            const options = ["最大客人+1", "阴米产出+2/天", "声望+10", "特殊客人概率+5%"];
+            const choice = prompt(`选择升级项目（花费50白银）：\n1. ${options[0]}\n2. ${options[1]}\n3. ${options[2]}\n4. ${options[3]}\n\n输入编号：`);
             
             if (!choice) return;
             
@@ -699,6 +1062,8 @@
             } else if (index === 2) {
                 gameState.reputation += 10;
                 showNotification("装饰客栈完成！声望+10", "success");
+            } else if (index === 3) {
+                showNotification("客栈名声提升！特殊客人更容易出现", "success");
             }
             
             updateDisplay();
@@ -731,7 +1096,9 @@
                 { name: "初来乍到", desc: "招待第一位客人", done: gameState.reputation > 0 },
                 { name: "功德无量", desc: "积累500功德", done: gameState.merit >= 500 },
                 { name: "富可敌国", desc: "拥有1000白银", done: gameState.silver >= 1000 },
-                { name: "客栈大师", desc: "客栈达到5级", done: gameState.innLevel >= 5 }
+                { name: "客栈大师", desc: "客栈达到5级", done: gameState.innLevel >= 5 },
+                { name: "特殊招待", desc: "招待10位特殊客人", done: gameState.reputation >= 150 },
+                { name: "阴阳通吃", desc: "招待所有类型的客人", done: gameState.reputation >= 100 }
             ];
             
             let message = "🏆 成就列表：\n\n";
@@ -773,7 +1140,9 @@
                     guests: [],
                     innLevel: 1,
                     maxGuests: 3,
-                    ricePerDay: 5
+                    ricePerDay: 5,
+                    specialItems: [],
+                    musicEnabled: true
                 };
                 updateDisplay();
                 showNotification("游戏已重置！", "success");
