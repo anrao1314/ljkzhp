@@ -25,6 +25,55 @@
             user-select: none;
         }
         
+        /* 音效控制按钮 */
+        .sound-btn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.5);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 100;
+            font-size: 20px;
+            border: none;
+            color: white;
+        }
+        
+        .volume-panel {
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            border-radius: 8px;
+            padding: 10px;
+            z-index: 100;
+            display: none;
+            min-width: 120px;
+        }
+        
+        .volume-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            margin: 8px 0;
+        }
+        
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        
         #loading {
             position: fixed;
             top: 0;
@@ -97,23 +146,6 @@
         .day-info {
             font-size: 18px;
             color: #87CEEB;
-        }
-        
-        /* 音乐控制按钮 */
-        .music-control {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.5);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            z-index: 100;
-            font-size: 20px;
         }
         
         .resources-grid {
@@ -380,8 +412,17 @@
     </style>
 </head>
 <body>
-    <!-- 音乐控制 -->
-    <div class="music-control" id="music-toggle" onclick="toggleMusic()">🎵</div>
+    <!-- 音效控制 -->
+    <button class="sound-btn" id="sound-toggle" onclick="toggleSoundPanel()">🎵</button>
+    <div class="volume-panel" id="volume-panel">
+        <div>音效控制</div>
+        <input type="range" class="volume-slider" id="volume-slider" 
+               min="0" max="100" value="50" 
+               oninput="updateVolume(this.value)">
+        <div style="font-size: 12px; color: #aaa; margin-top: 5px;">
+            音量: <span id="volume-value">50%</span>
+        </div>
+    </div>
     
     <!-- 加载界面 -->
     <div id="loading">
@@ -430,7 +471,6 @@
             <div class="btn-row">
                 <button class="btn btn-special" onclick="nextDay()">下一天</button>
                 <button class="btn" onclick="upgradeInn()">客栈升级</button>
-                <button class="btn btn-special" onclick="useSpecialItem()" style="grid-column: span 2;">使用特殊物品</button>
             </div>
         </div>
         
@@ -464,11 +504,6 @@
     <!-- 通知 -->
     <div id="notification" class="notification"></div>
 
-    <!-- 背景音乐 -->
-    <audio id="bg-music" loop>
-        <source src="https://m.kugou.com/share/song.html?chain=6h9J147FXV2" type="audio/mpeg">
-    </audio>
-
     <script>
         // 游戏状态
         let gameState = {
@@ -481,9 +516,122 @@
             innLevel: 1,
             maxGuests: 3,
             ricePerDay: 5,
-            specialItems: [],
-            musicEnabled: true
+            specialItems: []
         };
+
+        // 音效系统 - 超简单版本
+        const SoundSystem = {
+            enabled: true,
+            volume: 0.5,
+            
+            init() {
+                // 尝试加载保存的音效设置
+                try {
+                    const saved = localStorage.getItem('lingjingSoundSettings');
+                    if (saved) {
+                        const settings = JSON.parse(saved);
+                        this.enabled = settings.enabled;
+                        this.volume = settings.volume;
+                        
+                        // 更新UI
+                        document.getElementById('sound-toggle').textContent = 
+                            this.enabled ? '🔊' : '🔇';
+                        document.getElementById('volume-slider').value = this.volume * 100;
+                        document.getElementById('volume-value').textContent = 
+                            Math.round(this.volume * 100) + '%';
+                    }
+                } catch(e) {}
+            },
+            
+            play(type) {
+                if (!this.enabled || this.volume <= 0) return;
+                
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    // 不同音效的频率和时长
+                    let freq = 523.25; // 默认C5
+                    let duration = 100;
+                    
+                    switch(type) {
+                        case 'click': freq = 523.25; duration = 50; break;
+                        case 'success': freq = 659.25; duration = 200; break;
+                        case 'coin': freq = 783.99; duration = 150; break;
+                        case 'magic': freq = 1046.50; duration = 300; break;
+                        case 'error': freq = 392.00; duration = 300; break;
+                        case 'notify': freq = 440.00; duration = 100; break;
+                    }
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = freq;
+                    gainNode.gain.value = this.volume * 0.3;
+                    
+                    oscillator.start();
+                    
+                    setTimeout(() => {
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+                        oscillator.stop(audioContext.currentTime + 0.1);
+                    }, duration);
+                    
+                } catch(e) {
+                    // 音效失败不影响游戏
+                }
+            },
+            
+            saveSettings() {
+                try {
+                    localStorage.setItem('lingjingSoundSettings', JSON.stringify({
+                        enabled: this.enabled,
+                        volume: this.volume
+                    }));
+                } catch(e) {}
+            }
+        };
+
+        // 音效控制
+        function toggleSoundPanel() {
+            const panel = document.getElementById('volume-panel');
+            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+            SoundSystem.play('click');
+        }
+
+        function updateVolume(value) {
+            SoundSystem.volume = value / 100;
+            document.getElementById('volume-value').textContent = value + '%';
+            
+            // 播放测试音
+            if (SoundSystem.enabled && value > 0) {
+                SoundSystem.play('click');
+            }
+            
+            SoundSystem.saveSettings();
+        }
+
+        // 切换音效开关
+        function toggleSound() {
+            SoundSystem.enabled = !SoundSystem.enabled;
+            const btn = document.getElementById('sound-toggle');
+            btn.textContent = SoundSystem.enabled ? '🔊' : '🔇';
+            
+            if (SoundSystem.enabled) {
+                SoundSystem.play('success');
+            }
+            
+            SoundSystem.saveSettings();
+        }
+
+        // 为所有按钮添加点击音效
+        function setupButtonSounds() {
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    SoundSystem.play('click');
+                });
+            });
+        }
 
         // 普通客人数据
         const guestTypes = [
@@ -597,46 +745,10 @@
             }
         ];
 
-        // 音乐控制
-        function toggleMusic() {
-            const music = document.getElementById('bg-music');
-            const toggleBtn = document.getElementById('music-toggle');
-            
-            gameState.musicEnabled = !gameState.musicEnabled;
-            
-            if (gameState.musicEnabled) {
-                music.play().catch(e => console.log("音乐播放需要用户交互"));
-                toggleBtn.textContent = "🎵";
-                showNotification("背景音乐已开启", "info");
-            } else {
-                music.pause();
-                toggleBtn.textContent = "🔇";
-                showNotification("背景音乐已关闭", "info");
-            }
-        }
-
-        // 播放音效
-        function playSound(type) {
-            if (!gameState.musicEnabled) return;
-            
-            const audio = new Audio();
-            switch(type) {
-                case 'success':
-                    audio.src = 'https://assets.mixkit.co/active_storage/sfx/286/286-preview.mp3';
-                    break;
-                case 'coin':
-                    audio.src = 'https://assets.mixkit.co/active_storage/sfx/294/294-preview.mp3';
-                    break;
-                case 'magic':
-                    audio.src = 'https://assets.mixkit.co/active_storage/sfx/257/257-preview.mp3';
-                    break;
-            }
-            audio.volume = 0.3;
-            audio.play().catch(e => console.log("音效播放失败"));
-        }
-
         // 加载动画
         function startLoading() {
+            SoundSystem.init(); // 初始化音效
+            
             const progressBar = document.getElementById('progress-bar');
             const loadingText = document.getElementById('loading-text');
             
@@ -662,16 +774,9 @@
             document.getElementById('loading').style.display = 'none';
             document.getElementById('game').style.display = 'block';
             updateDisplay();
+            setupButtonSounds(); // 设置按钮音效
             showNotification("欢迎来到灵境客栈！");
-            
-            // 尝试播放背景音乐（需要用户交互）
-            try {
-                const music = document.getElementById('bg-music');
-                music.volume = 0.3;
-                if (gameState.musicEnabled) {
-                    setTimeout(() => music.play().catch(() => {}), 1000);
-                }
-            } catch(e) {}
+            SoundSystem.play('notify');
         }
 
         // 更新显示
@@ -710,8 +815,10 @@
             }, 3000);
             
             // 播放音效
-            if (type === 'success') playSound('success');
-            if (type === 'special') playSound('magic');
+            if (type === 'success') SoundSystem.play('success');
+            else if (type === 'error') SoundSystem.play('error');
+            else if (type === 'special') SoundSystem.play('magic');
+            else SoundSystem.play('notify');
         }
 
         // 显示客人
@@ -793,6 +900,13 @@
                 
                 guestsList.appendChild(guestCard);
             });
+            
+            // 为新生成的按钮添加音效
+            setTimeout(() => {
+                guestsList.querySelectorAll('.btn').forEach(btn => {
+                    btn.addEventListener('click', () => SoundSystem.play('click'));
+                });
+            }, 10);
         }
 
         // 检查是否能招待
@@ -819,7 +933,7 @@
                 gameState.guests.push(specialGuest);
                 updateDisplay();
                 
-                playSound('magic');
+                SoundSystem.play('magic');
                 showNotification(`✨ 特殊客人【${specialGuest.name}】降临客栈！`, "special");
                 return;
             }
@@ -880,7 +994,7 @@
             gameState.guests.splice(index, 1);
             
             updateDisplay();
-            playSound('coin');
+            SoundSystem.play('coin');
             
             if (guest.rarity) {
                 showNotification(`✨ 成功招待【${guest.name}】！获得特殊奖励！`, "success");
@@ -951,22 +1065,27 @@
             switch(item) {
                 case "斩鬼剑":
                     gameState.merit += 100;
+                    SoundSystem.play('magic');
                     showNotification("使用斩鬼剑：获得100功德", "success");
                     break;
                 case "仙酒":
                     const random = Math.random();
                     if (random < 0.33) {
                         gameState.silver += 80;
+                        SoundSystem.play('success');
                         showNotification("畅饮仙酒：获得80白银", "success");
                     } else if (random < 0.66) {
                         gameState.merit += 60;
+                        SoundSystem.play('success');
                         showNotification("畅饮仙酒：获得60功德", "success");
                     } else {
                         gameState.rice += 25;
+                        SoundSystem.play('success');
                         showNotification("畅饮仙酒：获得25阴米", "success");
                     }
                     break;
                 default:
+                    SoundSystem.play('click');
                     showNotification(`使用了：${item}`, "info");
             }
             
@@ -1001,9 +1120,11 @@
             if (Math.random() > 0.5) {
                 const discount = Math.floor(guest.needAmount * 0.2);
                 guest.needAmount = Math.max(1, guest.needAmount - discount);
+                SoundSystem.play('success');
                 showNotification(`议价成功！要求降低${discount}`, "success");
                 updateDisplay();
             } else {
+                SoundSystem.play('error');
                 showNotification("议价失败", "warning");
             }
         }
@@ -1028,6 +1149,13 @@
             
             const event = events[Math.floor(Math.random() * events.length)];
             event.reward();
+            
+            if (event.message.includes("损失")) {
+                SoundSystem.play('error');
+            } else {
+                SoundSystem.play('success');
+            }
+            
             showNotification(event.message, "info");
             updateDisplay();
         }
@@ -1055,14 +1183,18 @@
             
             if (index === 0) {
                 gameState.maxGuests += 1;
+                SoundSystem.play('success');
                 showNotification("扩建客房完成！最大客人+1", "success");
             } else if (index === 1) {
                 gameState.ricePerDay += 2;
+                SoundSystem.play('success');
                 showNotification("改良农田完成！阴米产出+2/天", "success");
             } else if (index === 2) {
                 gameState.reputation += 10;
+                SoundSystem.play('success');
                 showNotification("装饰客栈完成！声望+10", "success");
             } else if (index === 3) {
+                SoundSystem.play('success');
                 showNotification("客栈名声提升！特殊客人更容易出现", "success");
             }
             
@@ -1083,10 +1215,12 @@
             // 随机事件
             if (Math.random() > 0.7) {
                 gameState.silver += 20;
+                SoundSystem.play('coin');
                 showNotification("今天客栈生意兴隆！获得20白银", "success");
             }
             
             updateDisplay();
+            SoundSystem.play('notify');
             showNotification(`进入第${gameState.day}天！`, "success");
         }
 
@@ -1141,8 +1275,7 @@
                     innLevel: 1,
                     maxGuests: 3,
                     ricePerDay: 5,
-                    specialItems: [],
-                    musicEnabled: true
+                    specialItems: []
                 };
                 updateDisplay();
                 showNotification("游戏已重置！", "success");
@@ -1151,6 +1284,42 @@
 
         // 页面加载完成后开始
         window.onload = startLoading;
+        
+        // 点击其他地方关闭音量面板
+        document.addEventListener('click', function(e) {
+            const soundBtn = document.getElementById('sound-toggle');
+            const volumePanel = document.getElementById('volume-panel');
+            
+            if (!soundBtn.contains(e.target) && !volumePanel.contains(e.target)) {
+                volumePanel.style.display = 'none';
+            }
+        });
+        
+        // 为音效按钮添加长按切换功能
+        let soundPressTimer;
+        const soundBtn = document.getElementById('sound-toggle');
+        
+        soundBtn.addEventListener('touchstart', function() {
+            soundPressTimer = setTimeout(() => {
+                toggleSound();
+                clearTimeout(soundPressTimer);
+            }, 1000);
+        });
+        
+        soundBtn.addEventListener('touchend', function() {
+            clearTimeout(soundPressTimer);
+        });
+        
+        soundBtn.addEventListener('mousedown', function() {
+            soundPressTimer = setTimeout(() => {
+                toggleSound();
+                clearTimeout(soundPressTimer);
+            }, 1000);
+        });
+        
+        soundBtn.addEventListener('mouseup', function() {
+            clearTimeout(soundPressTimer);
+        });
     </script>
 </body>
 </html>
